@@ -40,9 +40,9 @@ Function Get-AzureRMWebAppConnectionString
 }
 
 #Log in with your Azure account
-#Add-AzureRmAccount
+Add-AzureRmAccount
 
-#$azuWebApps = Get-AzureRmWebApp
+$azuWebApps = Get-AzureRmWebApp
 
 #We'll just pop these up on notepad at the end
 $connStrResults = @()
@@ -51,10 +51,8 @@ foreach($azuWebApp in $azuWebApps)
 {
     #For some reason the global Get command doesn't retrieve these settings. You need to specify the specific Web App name
     $azuWebApp.SiteName | Out-Host
-    $azuWebApp = Get-AzureRmWebApp -Name $azuWebApp.Name -ResourceGroupName $azuWebApp.ResourceGroup -ErrorAction:Continue
- 
-    $connStrResults += Get-AzureRMWebAppConnectionString -WebApp $azuWebApp
-    
+    $azuWebApp = Get-AzureRmWebApp -Name $azuWebApp.Name -ResourceGroupName $azuWebApp.ResourceGroup -ErrorAction:Continue 
+    $connStrResults += Get-AzureRMWebAppConnectionString -WebApp $azuWebApp    
     $azuWebAppSlots = Get-AzureRmWebAppSlot -WebApp $azuWebApp -ErrorAction:Continue
 
     #Let's also get each slotted site settings
