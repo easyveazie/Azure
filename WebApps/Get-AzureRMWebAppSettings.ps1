@@ -7,6 +7,36 @@
         Requires Azure PowerShell from https://azure.microsoft.com/en-us/downloads/
 #>
 
+
+<#
+    .DESCRIPTION
+        Gets appSetting information from an Azure Web App or Web App Slot
+#>
+Function Get-AzureRMWebAppSettings
+{
+    Param(
+        $WebApp
+    )
+
+    $results = @()
+
+    foreach($appSett in $WebApp.SiteConfig.AppSettings)
+    {
+        $results += ([PSCustomObject]@{
+            'ResourceGroup' = $WebApp.ResourceGroup
+            'Site' = $WebApp.SiteName            
+            'AppSettingName' = $appSett.Name
+            'AppSettingValue' = $appSett.Value
+            'State' = $WebApp.State
+            'Type' = $WebApp.Type
+            'DefaultHostName' = $WebApp.DefaultHostName
+            'EnabledHostNames' = ($WebApp.EnabledHostNames -join ';')
+        })
+    }
+
+    return $results
+}
+
 Import-Module AzureRM.Websites
 
 #Log in with your Azure account
@@ -16,23 +46,32 @@ $azuWebApps = Get-AzureRmWebApp
 
 #We'll just pop these up on notepad at the end
 $appSettResults = @()
-$connStrResults = @()
 
 foreach($azuWebApp in $azuWebApps)
 {
     #For some reason the global Get command doesn't retrieve these settings. You need to specify the specific Web App name
     $azuWebApp.SiteName | Out-Host
-    $azuWebApp = Get-AzureRmWebApp -Name $azuWebApp.Name -ResourceGroupName $azuWebApp.ResourceGroup
+    $azuWebApp = Get-AzureRmWebApp -Name $azuWebApp.Name -ResourceGroupName $azuWebApp.ResourceGroup -ErrorAction:Continue 
+    $appSettResults += Get-AzureRMWebAppSettings -WebApp $azuWebApp    
+    $azuWebAppSlots = Get-AzureRmWebAppSlot -WebApp $azuWebApp -ErrorAction:Continue
 
-    foreach($appSett in $azuWebApp.SiteConfig.AppSettings)
+    #Let's also get each slotted site settings
+    foreach($azuWebAppSlot in $azuWebAppSlots)
     {
-        $appSettResults += ([PSCustomObject]@{
-            'ResourceGroup' = $azuWebApp.ResourceGroup
-            'Site' = $azuWebApp.SiteName
-            'DefaultHostName' = $azuWebApp.DefaultHostName
-            'AppSettingName' = $appSett.Name
-            'AppSettingValue' = $appSett.Value
-        })
+        try
+        {
+            #All Web Apps have a default staging slot exposed through this API. It doesn't always exist.
+            $azuWebAppSlot = Get-AzureRmWebAppSlot -Name $azuWebAppSlot.Name -ResourceGroupName $azuWebAppSlot.ResourceGroup -ErrorAction:SilentlyContinue
+            
+            if($?)
+            {
+                $appSettResults += Get-AzureRMWebAppSettings -WebApp $azuWebAppSlot
+            }
+        }
+        catch
+        {
+            $_.Exception.Message | Write-Error
+        }
     }
 }
 
